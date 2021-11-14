@@ -1,7 +1,8 @@
 let root = document.querySelector('[x-data]');
 let rawData = getInitialData();
 let data = observe(rawData);
-refreshDom();
+registerListeners();
+updateDom();
 
 /**
  * Find our x-data attribute and return the data.
@@ -31,14 +32,15 @@ function walkDom(el, callback) {
 }
 
 /**
- * 
+ * The reactivity.
+ *
  * @param {Object} data 
  */
 function observe(data) {
 	return new Proxy(data, {
 		set(target, key, value) {
 			target[key] = value;
-			refreshDom();
+			updateDom();
 		}
 	});
 }
@@ -46,11 +48,22 @@ function observe(data) {
 /**
  * Update the dom.
  */
- function refreshDom() {
+ function updateDom() {
 	walkDom(root, el => {
 		if (el.hasAttribute('x-text')) {
 			let expression = el.getAttribute('x-text');
 			el.innerText = eval(`with (data) { (${expression}) }`);
+		}
+	});
+}
+
+function registerListeners() {
+	walkDom(root, el => {
+		if (el.hasAttribute('@click')) {
+			let expression = el.getAttribute('@click');
+			el.addEventListener('click', () => {
+				eval(`with (data) { (${expression}) }`);
+			});
 		}
 	});
 }
