@@ -1,69 +1,95 @@
-let root = document.querySelector('[x-data]');
-let rawData = getInitialData();
-let data = observe(rawData);
-registerListeners();
-updateDom();
+window.AlpineClone = {
+	directives: {
+		'x-text': (el, value) => {
+			el.innerText = value;
+		},
+		'x-show': (el, value) => {
+			el.style.display = value ? 'block' : 'none';
+		},
+	},
 
-/**
- * Find our x-data attribute and return the data.
- *
- * @returns {object}
- */
- function getInitialData() {
-	let dataString = root.getAttribute('x-data');
-	return eval(`(${dataString})`);
-}
+	/**
+	 * Initialize the app.
+	 */
+	start() {
+		this.root = document.querySelector('[x-data]');
+		this.rawData = this.getInitialData();
+		this.data = this.observe(this.rawData);
+		this.registerListeners();
+		this.updateDom();
+	},
 
+	/**
+	 * Find our x-data attribute and return the data.
+	 *
+	 * @returns {object}
+	 */
+	 getInitialData() {
+		let dataString = this.root.getAttribute('x-data');
+		return eval(`(${dataString})`);
+	},
 
-/**
- * Walk the dom starting from the element el.
- *
- * @param {HTMLElement} el 
- * @param {function}    callback 
- */
-function walkDom(el, callback) {
-	callback(el);
-	el = el.firstElementChild;
+	/**
+	 * Recursively walk the dom starting from the element el.
+	 *
+	 * @param {HTMLElement} el 
+	 * @param {function}    callback 
+	 */
+	walkDom(el, callback) {
+		callback(el);
 
-	while (el) {
-		walkDom(el, callback);
-		el = el.nextElementSibling;
-	}
-}
-
-/**
- * The reactivity.
- *
- * @param {Object} data 
- */
-function observe(data) {
-	return new Proxy(data, {
-		set(target, key, value) {
-			target[key] = value;
-			updateDom();
+		el = el.firstElementChild;
+	
+		while (el) {
+			this.walkDom(el, callback);
+			el = el.nextElementSibling;
 		}
-	});
-}
+	},
 
-/**
- * Update the dom.
- */
- function updateDom() {
-	walkDom(root, el => {
-		if (el.hasAttribute('x-text')) {
-			let expression = el.getAttribute('x-text');
-			el.innerText = eval(`with (data) { (${expression}) }`);
-		}
-	});
-}
+	/**
+	 * The reactivity.
+	 *
+	 * @param {Object} data 
+	 */
+	observe(data) {
+		const self = this;
+		return new Proxy(data, {
+			set(target, key, value) {
+				target[key] = value;
+				self.updateDom();
+			}
+		});
+	},
 
-function registerListeners() {
-	walkDom(root, el => {
-		if (el.hasAttribute('@click')) {
-			let expression = el.getAttribute('@click');
-			el.addEventListener('click', () => {
-				eval(`with (data) { (${expression}) }`);
+	/**
+	 * Update the dom.
+	 */
+	updateDom() {
+		this.walkDom(this.root, el => {
+			Array.from(el.attributes).forEach(attr => {
+				if (!Object.keys(this.directives).includes(attr.name)) return;
+	
+				this.directives[attr.name](el, eval(`with (this.data) { (${attr.value}) }`));
 			});
-		}
-	});
-}
+		});
+	},
+
+	/**
+	 * Event Listeners for the dom.
+	 */
+	registerListeners() {
+		this.walkDom(this.root, el => {
+			Array.from(el.attributes).forEach(attr => {
+				if (!attr.name.startsWith('@')) return;
+	
+				let event = attr.name.replace('@', '');
+	
+				el.addEventListener(event, () => {
+					eval(`with (this.data) { (${attr.value}) }`);
+				});
+			});
+		});
+	}
+};
+
+window.AlpineClone.start();
